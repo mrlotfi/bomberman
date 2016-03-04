@@ -3,7 +3,6 @@ function beep() {
     snd.play();
 }
 
-var number_of_items = 0;
 var item_list_x = [];
 var item_list_y = [];
 var item_list_type = [];
@@ -22,6 +21,8 @@ var playerx,playery,playerxx,playeryy;
 
 var bomb_radius = 1;
 var pass_walls = false;
+var is_bombed = false;
+var bombx , bomby;
 
 var time;
 var lang="fa";
@@ -35,19 +36,17 @@ var left_key = 37;
 var up_key = 38;
 var down_key = 40;
 
+var time_interval , zombie_interval;
 function logSummary() {
   console.log('printing items');
-  for(var i=0;i<item_list_type.length;i++) {
+  for(var i=0;i<item_list_type.length;i++) 
     console.log(item_list_x[i],item_list_y[i],'type',item_list_type[i]);
-  }
   console.log('printing zombies');
-  for(i=0;i<zombies_list_x.length;i++) {
+  for(i=0;i<zombies_list_x.length;i++) 
     console.log(zombies_list_x[i],zombies_list_y[i]);
-  }
   console.log('walls');
-  for(i=0;i<walls_list_x.length;i++) {
+  for(i=0;i<walls_list_x.length;i++) 
     console.log(walls_list_x[i],walls_list_y[i]);
-  }
   console.log('player',playerx,playery,playerxx,playeryy);
   console.log('chosen background color was '+background_color);
 }
@@ -78,7 +77,7 @@ function initGame() {
     do {
     zombie_x = Math.floor(Math.random() * board_width);
     zombie_y = Math.floor(Math.random() * board_height);
-  } while((zombie_x==0 && zombie_y==0) || ((zombie_x % 2) == 1 && (zombie_y % 2) == 1) || (item_list_x.indexOf(zombie_x)!=-1 && item_list_y.indexOf(zombie_y)!=-1));
+    } while((zombie_x == 0 && zombie_y == 0) || ((zombie_x % 2) == 1 && (zombie_y % 2) == 1) || (item_list_x.indexOf(zombie_x)!=-1 && item_list_y.indexOf(zombie_y)!=-1));
     zombies_list_x.push(zombie_x);
     zombies_list_y.push(zombie_y);
   }
@@ -92,9 +91,9 @@ function initGame() {
   }
   for(i=0;i<temp;i++) {
     var wallx,wally;
-    wallx = Math.floor(Math.random()*board_width);
-    wally = Math.floor(Math.random()*board_height);
-    if(zombies_list_x.indexOf(wallx) != -1 || zombies_list_y.indexOf(wally) != -1 || ((wallx%2 == 1) && (wally%2==1)) || (walls_list_x.indexOf(wallx)!=-1 && walls_list_y.indexOf(wally)!=-1) || (wallx==0 && wally==0))
+    wallx = Math.floor(Math.random() * board_width);
+    wally = Math.floor(Math.random() * board_height);
+    if(zombies_list_x.indexOf(wallx) != -1 || zombies_list_y.indexOf(wally) != -1 || ((wallx%2 == 1) && (wally%2 == 1)) || (walls_list_x.indexOf(wallx)!=-1 && walls_list_y.indexOf(wally)!=-1) || (wallx==0 && wally==0))
       continue;
     walls_list_x.push(wallx);
     walls_list_y.push(wally);
@@ -105,8 +104,8 @@ function initGame() {
 
   time_update();
   zombie_update();
-  setInterval(time_update , 1000);
-  setInterval(move_zombies, 1000);
+  time_interval =  setInterval(time_update , 1000);
+  zombie_interval =  setInterval(move_zombies, 1000);
   $('.game').show();
   $('.topbar').show();
   
@@ -127,7 +126,6 @@ function initBoard() {
       $('.game').css('width','90%');
       base_square_size = 100.0 / board_width;
   }
-  console.log(base_square_size);
   $('.board').css('padding-top', ratio*100+'%');
   $('.board').css('background', background_color);
   /*for(var i=0;i<board_width;i++) {
@@ -174,7 +172,7 @@ function initBoard() {
         'top:'+ getRight(walls_list_y[i])+'%;\" ' +
         'class="base" style="z-index:3;" id=\"wall'+i +'\"><div class="wall"></div></div>');
   }
-  $('.board').append('<div class="base" id="girl" style=" background:sepia;' +
+  $('.board').append('<div class="base" id="girl" style=" background:sepia;z-index:800;' +
             'padding-top:'+ base_square_size+'%;'+
             'width:'+base_square_size+'%;'+
             'left:' + getLeft(playerx)+'%;'+
@@ -273,36 +271,116 @@ function validWalls() {
   }
   return true;
 }
-
+/***************collision detection, bomb related functions *****************************/
+function check_player_zombie_collision() {
+  for(var i=0;i<zombies_list_x.length;i++) {
+    if(playerx == zombies_list_x[i] && playery == zombies_list_y[i]) 
+      return true;
+    if(playerx == zombies_list_x[i]-1 && playery == zombies_list_y[i] && playerxx > 0) 
+      return true;
+    if(playery == zombies_list_y[i] -1 && playeryy>0 && playerx == zombies_list_x[i])
+      return true;
+  }
+  return false;
+}
+function end_game(x) {
+  clearInterval(time_interval);
+  clearInterval(zombie_interval);
+  $('.modal').show('slow', function() {
+  });
+  $('.girl').remove();
+}
+function put_bomb() {
+  if(is_bombed)
+    return;
+  is_bombed = true;
+  bombx = playerx;
+  if(playerxx > 1)
+    bombx++;
+  bomby = playery;
+  if(playeryy > 1)
+    bomby++;
+  $('.board').append('<div style=\"' +
+        'padding-top:'+ base_square_size+'%;'+
+        'width:'+base_square_size+'%;'+
+        'left:' + getLeft(bombx)+'%;'+
+        'top:'+ getRight(bomby)+'%;\" ' +
+        'class="base" style="z-index:3;" id=\"bomb\"><div class="bombmain"></div></div>');
+  setTimeout(explode_bomb, 2000);
+}
+function explode_bomb() {
+  is_bombed = false;
+  $('#bomb').remove();
+  beep();
+  for(var i=0;i<walls_list_x.length;i++) {
+    console.log(walls_list_x[i] , walls_list_y[i]);
+    if(walls_list_x == -1)
+      continue;
+    if(Math.abs(walls_list_x[i]-bombx) + Math.abs(walls_list_y[i]-bomby) <= bomb_radius) {
+      walls_list_x[i] = walls_list_y[i] = -1;
+      $('#wall'+i).remove();
+      console.log('tried to remove',i);
+    }
+  }
+  for(var i=0;i<zombies_list_x.length;i++) {
+    if(zombies_list_x[i] == -1)
+      continue;
+    if(Math.abs(zombies_list_x[i]-bombx) + Math.abs(zombies_list_y[i]-bomby) <= bomb_radius) {
+      zombies_list_y[i] = zombies_list_x[i] = -1;
+      $('#zombie'+i).remove();
+      console.log('tried to remove zombie',i);
+      number_of_zombies--;
+      zombie_update();
+    }
+  }
+  if(Math.abs(playerx+(playerxx/3.0)-bombx) + Math.abs(playery+(playeryy/3.0)-bomby) <= bomb_radius) 
+    end_game(false);
+}
+function eat_availabe_items() {
+  //just when he is completely in that cell he eats its contents
+  if(playerxx != 0 || playeryy != 0)
+    return false;
+  for(var i=0;i<item_list_type.length;i++) {
+    if(item_list_y[i] == playery && item_list_x[i] == playerx) {
+      item_list_x[i] = item_list_y[i] = -1;
+      if(item_list_type[i] == 'endgame')
+        end_game(true);
+      else if(item_list_type[i] == 'wallpass')
+        pass_walls = true;
+      else
+        bomb_radius++;
+      $('#item'+i).remove();
+    }
+  }
+}
 /************* movement of zombies ******************************************************/
 function move_zombies() {
   for(var i=0;i<zombies_list_x.length;i++)
     move_zombie(i);
+  if(check_player_zombie_collision())
+    end_game(false);
 }
 function move_zombie(index) {
   if(zombies_list_x[index] == -1)
     return;
   var prob = Math.random();
   if(prob<0.25) {
-    if(valid_for_zombie(zombies_list_x[index]+1,zombies_list_y[index])) {
+    if(valid_for_zombie(zombies_list_x[index]+1,zombies_list_y[index])) 
         move_and_render_zombie(1,0,index);
-    }
   }
   else if(prob<0.5) {
-    if(valid_for_zombie(zombies_list_x[index]-1,zombies_list_y[index])) {
+    if(valid_for_zombie(zombies_list_x[index]-1,zombies_list_y[index])) 
         move_and_render_zombie(-1,0,index);
-    }
   }
   else if(prob<0.75) {
-    if(valid_for_zombie(zombies_list_x[index],zombies_list_y[index]+1)) {
+    if(valid_for_zombie(zombies_list_x[index],zombies_list_y[index]+1)) 
         move_and_render_zombie(0,1,index);
-    }
   }
   else {
-    if(valid_for_zombie(zombies_list_x[index],zombies_list_y[index]-1)) {
+    if(valid_for_zombie(zombies_list_x[index],zombies_list_y[index]-1)) 
         move_and_render_zombie(0,-1,index);
-    }
   }
+
 }
 
 function valid_for_zombie(x,y) {
@@ -310,41 +388,32 @@ function valid_for_zombie(x,y) {
     return false;
   if(x<0 || y<0 || x>=board_width || y>=board_height)
     return false;
-  for(var i=0;i<walls_list_x.length;i++) {
+  for(var i=0;i<walls_list_x.length;i++) 
     if(walls_list_y[i] == y && walls_list_x[i] == x)
       return false;
-  }
   return true;
 }
 
 function move_and_render_zombie(x,y,index) {
-  /*$('#zombie'+index).css('left', (getLeft(x+zombies_list_x[index]))+'%');
-  $('#zombie'+index).css('top', (getRight(y+zombies_list_y[index]))+'%');*/
   $('#zombie'+index).animate({
     left: ''+getLeft(x+zombies_list_x[index])+'%',
-    top: ''+getRight(y+zombies_list_y[index]) +'%' },
-    50, function() {
-    /* stuff to do after animation is complete */
-  });
-  zombies_list_x[index]+=x;
-  zombies_list_y[index]+=y;
+    top: ''+getRight(y+zombies_list_y[index]) +'%'},
+    50, function() {});
+  zombies_list_x[index] += x;
+  zombies_list_y[index] += y;
 }
 /*************this part is related to updating game stat in topbar***********************/
 function time_string() {
-  if(lang=='en'){
+  if(lang=='en')
     return 'Time: ' + time + 's';
-  }
-  else {
+  else 
     return 'زمان: '+time+' ثانیه';
-  }
 }
 function zombie_string() {
-  if(lang == "en") {
+  if(lang == "en") 
     return "Zombies: " + number_of_zombies;
-  }
-  else {
+  else 
     return "تعداد زامبی ها: " + number_of_zombies;
-  }
 }
 function time_update() {
   time++;
@@ -358,9 +427,8 @@ function zombie_update() {
 /******************  for adding elements to startup form, event listeners ***************/
 $(document).ready(function() {
   $('#additem_btn').on('click',function() {
-    var txt1 = '<div class="itemadder" style="margin:10px;">itemx <input class="itemx" type="text" value="0"> itemy <input class="itemy" type="text" value="0"> <select class="itemtype"><option value="bomb">bomb++</option><option value="wallpass">Wall passer</option></select></div>';
+    var txt1 = '<div class="itemadder" style="margin:10px;">itemx <input class="itemx" type="text" value="0"> itemy <input class="itemy" type="text" value="0"> <select class="itemtype"><option value="bomb">bomb++</option><option value="wallpass">Wall passer</option><option value="endgame">End game</option></select></div>';
     $('#startup_form #finalize_btn').before(txt1);
-    number_of_items++;
   });
   $('.topbar').click(function() {
     if(lang == "en")
@@ -438,8 +506,12 @@ $(document).ready(function() {
         renderPlayer();
         break;
       case bomb_key:
+        put_bomb();
         break;
     }
+    if(check_player_zombie_collision())
+          end_game();
+    eat_availabe_items();
   });
 });
 
