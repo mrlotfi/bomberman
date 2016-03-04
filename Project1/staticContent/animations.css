@@ -1,0 +1,11 @@
+#g {
+  width: 100px;
+  height: 100px;
+  animation:mamad linear;
+  animation-duration: 2s;
+  animation-iteration-count: infinite;
+}
+@keyframes mamad {
+  0% {background:blue;height: 0;}
+  100% {background:red;height: 100px;}
+}
